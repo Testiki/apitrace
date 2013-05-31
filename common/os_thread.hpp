@@ -37,6 +37,8 @@
 #include <windows.h>
 #else
 #include <pthread.h>
+#include <signal.h>
+#include <semaphore.h>
 #endif
 
 
@@ -420,6 +422,49 @@ namespace os {
         );
 #endif
 #endif
+    };
+
+
+    class semaphore {
+    public:
+#ifdef _WIN32
+        typedef HANDLE native_handle_type;
+#else
+        typedef sem_t native_handle_type;
+#endif
+        semaphore(int initValue = 1) {
+#ifdef _WIN32
+            _native_handle = CreateSemaphore(NULL, initValue, initValue, NULL);
+#else
+            sem_init(&_native_handle, 0, initValue);
+#endif
+        }
+
+        void wait() {
+#ifdef _WIN32
+            _native_handle = WaitForSingleObject(_native_handle, INFINITE);
+#else
+            sem_wait(&_native_handle);
+#endif
+        }
+
+        void post() {
+#ifdef _WIN32
+            _native_handle = ReleaseSemaphore(_native_handle, 1, NULL);
+#else
+            sem_post(&_native_handle);
+#endif
+        }
+
+        ~semaphore() {
+#ifdef _WIN32
+            CloseHandle(_native_handle);
+#else
+            sem_destroy(&_native_handle);
+#endif
+        }
+    private:
+        native_handle_type _native_handle;
     };
 
 } /* namespace os */
