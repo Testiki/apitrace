@@ -38,6 +38,8 @@
 #include <assert.h>
 
 
+class ThreadedFile;
+
 namespace trace {
 
 class CompressionLibrary {
@@ -248,6 +250,7 @@ public:
 public:
     static File *createZLib(void);
     static File *createForRead(const char *filename);
+    static ThreadedFile *createThreadedFile();
     static File *createCommonFile(File::Compressor compressor);
 public:
     File(const std::string &filename = std::string(),

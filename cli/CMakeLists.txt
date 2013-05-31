@@ -29,6 +29,7 @@ add_executable (apitrace
 target_link_libraries (apitrace
     common
     ${COMPRESSION_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${GETOPT_LIBRARIES}
 )
 

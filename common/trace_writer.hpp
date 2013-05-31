@@ -37,13 +37,18 @@
 
 #include "trace_model.hpp"
 #include "trace_backtrace.hpp"
+#include "trace_threaded_file.hpp"
 
 namespace trace {
     class File;
 
     class Writer {
     protected:
-        File *m_file;
+        /*
+         * m_file type changed to ThreadedFile since tests shows that getting rid
+         * of virtual calls and heavy inlining helps performance a lot.
+         */
+        ThreadedFile *m_file;
         unsigned call_no;
 
         std::vector<bool> functions;

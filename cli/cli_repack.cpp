@@ -32,6 +32,7 @@
 #include "cli.hpp"
 
 #include "trace_file.hpp"
+#include "trace_threaded_file.hpp"
 
 
 static const char *synopsis = "Repack a trace file with Snappy compression.";
@@ -65,7 +66,7 @@ repack(const char *inFileName, const char *outFileName)
         return 1;
     }
 
-    trace::File *outFile = trace::File::createCommonFile(trace::File::SNAPPY);
+    trace::File *outFile = new ThreadedFile(new trace::SnappyLibrary());
     if (!outFile) {
         delete inFile;
         return 1;
