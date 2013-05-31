@@ -30,13 +30,12 @@
 #include <string>
 #include <fstream>
 #include <stdint.h>
-
-
-#define SNAPPY_BYTE1 'a'
-#define SNAPPY_BYTE2 't'
+#include <assert.h>
 
 
 namespace trace {
+
+class ThreadedFile;
 
 class File {
 public:
@@ -52,12 +51,17 @@ public:
         uint64_t chunk;
         uint32_t offsetInChunk;
     };
+    enum Compressor {
+        SNAPPY,
+        LZ4,
+        LZ4HC,
+        ZLIB
+    };
 
 public:
     static File *createZLib(void);
-    static File *createSnappy(void);
     static File *createForRead(const char *filename);
-    static File *createForWrite(const char *filename);
+    static File *createCommonFile(File::Compressor compressor);
 public:
     File(const std::string &filename = std::string(),
          File::Mode mode = File::Read);

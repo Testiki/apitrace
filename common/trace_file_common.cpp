@@ -23,23 +23,20 @@
  *
  **************************************************************************/
 
-
 /*
- * Snappy file format.
- * -------------------
+ * Unified file for tracing/retracing with multiple compression
+ * library support.
  *
- * Snappy at its core is just a compressoin algorithm so we're
- * creating a new file format which uses snappy compression
- * to hold the trace data.
+ * Currently, LZ4 and Snappy are supported.
+ * Zlib is supported only for read by specified class in trace_file_zlib.cpp
  *
  * The file is composed of a number of chunks, they are:
  * chunk {
  *     uint32 - specifying the length of the compressed data
  *     compressed data, in little endian
  * }
+ *
  * File can contain any number of such chunks.
- * The default size of an uncompressed chunk is specified in
- * SNAPPY_CHUNK_SIZE.
  *
  * Note:
  * Currently the default size for a a to-be-compressed data is
@@ -47,11 +44,8 @@
  * The reason it's 1mb is because it seems
  * to offer a pretty good compression/disk io speed ratio
  * but that might change.
- *
+
  */
-
-
-#include <snappy.h>
 
 #include <iostream>
 
@@ -59,20 +53,17 @@
 #include <string.h>
 
 #include "trace_file.hpp"
-
-
-#define SNAPPY_CHUNK_SIZE (1 * 1024 * 1024)
-
-
+#include "trace_compression_library.hpp"
 
 using namespace trace;
 
 
-class SnappyFile : public File {
+class CommonFile : public File {
 public:
-    SnappyFile(const std::string &filename = std::string(),
-               File::Mode mode = File::Read);
-    virtual ~SnappyFile();
+    CommonFile(CompressionLibrary * lib = new LZ4Library(false),
+                const std::string &filename = std::string(),
+                File::Mode mode = File::Read);
+    virtual ~CommonFile();
 
     virtual bool supportsOffsets() const;
     virtual File::Offset currentOffset();
@@ -109,8 +100,9 @@ private:
     void flushWriteCache();
     void flushReadCache(size_t skipLength = 0);
     void createCache(size_t size);
-    void writeCompressedLength(size_t length);
-    size_t readCompressedLength();
+    void reallocCompressedCache(size_t size);
+    void writeLength(size_t length);
+    size_t readLength();
 private:
     std::fstream m_stream;
     size_t m_cacheMaxSize;
@@ -118,38 +110,44 @@ private:
     char *m_cache;
     char *m_cachePtr;
 
+    size_t m_compressedCacheSize;
     char *m_compressedCache;
 
     File::Offset m_currentOffset;
     std::streampos m_endPos;
+
+    CompressionLibrary * m_library;
+    static const size_t CACHE_SIZE = 1 * 1024 * 1024;
+
 };
 
-SnappyFile::SnappyFile(const std::string &filename,
+CommonFile::CommonFile(CompressionLibrary * lib, const std::string &filename,
                               File::Mode mode)
     : File(),
-      m_cacheMaxSize(SNAPPY_CHUNK_SIZE),
+      m_cacheMaxSize(CACHE_SIZE),
       m_cacheSize(m_cacheMaxSize),
       m_cache(new char [m_cacheMaxSize]),
-      m_cachePtr(m_cache)
+      m_cachePtr(m_cache),
+      m_compressedCacheSize(CACHE_SIZE),
+      m_compressedCache(new char[m_compressedCacheSize]),
+      m_library(lib)
 {
-    size_t maxCompressedLength =
-        snappy::MaxCompressedLength(SNAPPY_CHUNK_SIZE);
-    m_compressedCache = new char[maxCompressedLength];
 }
 
-SnappyFile::~SnappyFile()
+CommonFile::~CommonFile()
 {
     close();
     delete [] m_compressedCache;
     delete [] m_cache;
+    delete m_library;
 }
 
-bool SnappyFile::rawOpen(const std::string &filename, File::Mode mode)
+bool CommonFile::rawOpen(const std::string &filename, File::Mode mode)
 {
     std::ios_base::openmode fmode = std::fstream::binary;
     if (mode == File::Write) {
         fmode |= (std::fstream::out | std::fstream::trunc);
-        createCache(SNAPPY_CHUNK_SIZE);
+        createCache(CACHE_SIZE);
     } else if (mode == File::Read) {
         fmode |= std::fstream::in;
     }
@@ -162,22 +160,23 @@ bool SnappyFile::rawOpen(const std::string &filename, File::Mode mode)
         m_endPos = m_stream.tellg();
         m_stream.seekg(0, std::ios::beg);
 
-        // read the snappy file identifier
+        unsigned int sig = m_library->getSignature();
         unsigned char byte1, byte2;
         m_stream >> byte1;
         m_stream >> byte2;
-        assert(byte1 == SNAPPY_BYTE1 && byte2 == SNAPPY_BYTE2);
+        assert(byte1 == (unsigned char)((sig >> 8) & 0xFF));
+        assert(byte2 == (unsigned char)(sig & 0xFF));
 
         flushReadCache();
     } else if (m_stream.is_open() && mode == File::Write) {
-        // write the snappy file identifier
-        m_stream << SNAPPY_BYTE1;
-        m_stream << SNAPPY_BYTE2;
+        unsigned int sig = m_library->getSignature();
+        m_stream << ((unsigned char)((sig >> 8) & 0xFF));
+        m_stream << ((unsigned char)(sig & 0xFF));
     }
     return m_stream.is_open();
 }
 
-bool SnappyFile::rawWrite(const void *buffer, size_t length)
+bool CommonFile::rawWrite(const void *buffer, size_t length)
 {
     if (freeCacheSize() > length) {
         memcpy(m_cachePtr, buffer, length);
@@ -207,7 +206,7 @@ bool SnappyFile::rawWrite(const void *buffer, size_t length)
     return true;
 }
 
-size_t SnappyFile::rawRead(void *buffer, size_t length)
+size_t CommonFile::rawRead(void *buffer, size_t length)
 {
     if (endOfData()) {
         return 0;
@@ -237,7 +236,7 @@ size_t SnappyFile::rawRead(void *buffer, size_t length)
     return length;
 }
 
-int SnappyFile::rawGetc()
+int CommonFile::rawGetc()
 {
     unsigned char c = 0;
     if (rawRead(&c, 1) != 1)
@@ -245,8 +244,11 @@ int SnappyFile::rawGetc()
     return c;
 }
 
-void SnappyFile::rawClose()
+void CommonFile::rawClose()
 {
+    if (!m_stream.is_open()) {
+        return;
+    }
     if (m_mode == File::Write) {
         flushWriteCache();
     }
@@ -256,52 +258,48 @@ void SnappyFile::rawClose()
     m_cachePtr = NULL;
 }
 
-void SnappyFile::rawFlush()
+void CommonFile::rawFlush()
 {
     assert(m_mode == File::Write);
     flushWriteCache();
     m_stream.flush();
 }
 
-void SnappyFile::flushWriteCache()
+void CommonFile::flushWriteCache()
 {
     size_t inputLength = usedCacheSize();
 
     if (inputLength) {
         size_t compressedLength;
 
-        ::snappy::RawCompress(m_cache, inputLength,
-                              m_compressedCache, &compressedLength);
-
-        writeCompressedLength(compressedLength);
+        m_library->compress(m_cache, inputLength, m_compressedCache, &compressedLength);
+        writeLength(compressedLength);
         m_stream.write(m_compressedCache, compressedLength);
         m_cachePtr = m_cache;
     }
     assert(m_cachePtr == m_cache);
 }
 
-void SnappyFile::flushReadCache(size_t skipLength)
+void CommonFile::flushReadCache(size_t skipLength)
 {
-    //assert(m_cachePtr == m_cache + m_cacheSize);
     m_currentOffset.chunk = m_stream.tellg();
     size_t compressedLength;
-    compressedLength = readCompressedLength();
+    compressedLength = readLength();
 
     if (compressedLength) {
+        reallocCompressedCache(compressedLength);
         m_stream.read((char*)m_compressedCache, compressedLength);
-        ::snappy::GetUncompressedLength(m_compressedCache, compressedLength,
-                                        &m_cacheSize);
-        createCache(m_cacheSize);
-        if (skipLength < m_cacheSize) {
-            ::snappy::RawUncompress(m_compressedCache, compressedLength,
-                                    m_cache);
+        int cacheSize = m_library->uncompressedLength(m_compressedCache, compressedLength);
+        createCache(cacheSize);
+        if (skipLength < cacheSize) {
+            m_library->uncompress(m_compressedCache, compressedLength, m_cache);
         }
     } else {
         createCache(0);
     }
 }
 
-void SnappyFile::createCache(size_t size)
+void CommonFile::createCache(size_t size)
 {
     if (size > m_cacheMaxSize) {
         do {
@@ -309,53 +307,57 @@ void SnappyFile::createCache(size_t size)
         } while (size > m_cacheMaxSize);
 
         delete [] m_cache;
-        m_cache = new char[size];
-        m_cacheMaxSize = size;
+        m_cache = new char[m_cacheMaxSize];
     }
 
     m_cachePtr = m_cache;
     m_cacheSize = size;
 }
 
-void SnappyFile::writeCompressedLength(size_t length)
+void CommonFile::reallocCompressedCache(size_t size)
 {
-    unsigned char buf[4];
-    buf[0] = length & 0xff; length >>= 8;
-    buf[1] = length & 0xff; length >>= 8;
-    buf[2] = length & 0xff; length >>= 8;
-    buf[3] = length & 0xff; length >>= 8;
-    assert(length == 0);
+    if (size > m_compressedCacheSize) {
+        do {
+            m_compressedCacheSize <<= 1;
+        } while (size > m_compressedCacheSize);
+
+        delete [] m_compressedCache;
+        m_compressedCache = new char[m_compressedCacheSize];
+    }
+}
+
+void CommonFile::writeLength(size_t length)
+{
+    unsigned char buf[m_library->m_lengthSize];
+    m_library->setLength(buf, length);
     m_stream.write((const char *)buf, sizeof buf);
 }
 
-size_t SnappyFile::readCompressedLength()
+size_t CommonFile::readLength()
 {
-    unsigned char buf[4];
+    unsigned char buf[m_library->m_lengthSize];
     size_t length;
     m_stream.read((char *)buf, sizeof buf);
     if (m_stream.fail()) {
         length = 0;
     } else {
-        length  =  (size_t)buf[0];
-        length |= ((size_t)buf[1] <<  8);
-        length |= ((size_t)buf[2] << 16);
-        length |= ((size_t)buf[3] << 24);
+        length = m_library->getLength(buf);
     }
     return length;
 }
 
-bool SnappyFile::supportsOffsets() const
+bool CommonFile::supportsOffsets() const
 {
     return true;
 }
 
-File::Offset SnappyFile::currentOffset()
+File::Offset CommonFile::currentOffset()
 {
     m_currentOffset.offsetInChunk = m_cachePtr - m_cache;
     return m_currentOffset;
 }
 
-void SnappyFile::setCurrentOffset(const File::Offset &offset)
+void CommonFile::setCurrentOffset(const File::Offset &offset)
 {
     // to remove eof bit
     m_stream.clear();
@@ -369,7 +371,7 @@ void SnappyFile::setCurrentOffset(const File::Offset &offset)
 
 }
 
-bool SnappyFile::rawSkip(size_t length)
+bool CommonFile::rawSkip(size_t length)
 {
     if (endOfData()) {
         return false;
@@ -395,12 +397,22 @@ bool SnappyFile::rawSkip(size_t length)
     return true;
 }
 
-int SnappyFile::rawPercentRead()
+int CommonFile::rawPercentRead()
 {
     return 100 * (double(m_stream.tellg()) / double(m_endPos));
 }
 
 
-File* File::createSnappy(void) {
-    return new SnappyFile;
+File* File::createCommonFile(File::Compressor compressor)
+{
+    switch (compressor) {
+        case SNAPPY:
+            return new CommonFile(new SnappyLibrary());
+        case LZ4:
+            return new CommonFile(new LZ4Library(false));
+        case LZ4HC:
+            return new CommonFile(new LZ4Library(true));
+        default:
+            return new CommonFile(new SnappyLibrary());
+    }
 }

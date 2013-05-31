@@ -28,7 +28,7 @@
 
 #include "os.hpp"
 #include "trace_file.hpp"
-
+#include "trace_compression_library.hpp"
 
 using namespace trace;
 
@@ -47,13 +47,18 @@ File::createForRead(const char *filename)
     stream.close();
 
     File *file;
-    if (byte1 == SNAPPY_BYTE1 && byte2 == SNAPPY_BYTE2) {
-        file = File::createSnappy();
-    } else if (byte1 == 0x1f && byte2 == 0x8b) {
-        file = File::createZLib();
-    } else  {
-        os::log("error: %s: unkwnown compression\n", filename);
-        return NULL;
+    if (SnappyLibrary::isSnappyCompressed(byte1, byte2)) {
+        file = createCommonFile(SNAPPY);
+    }
+    else if (LZ4Library::isLZ4Compressed(byte1, byte2)) {
+        file = createCommonFile(LZ4);
+    }
+    else if (ZLibrary::isZlibCompressed(byte1, byte2)) {
+        file = createZLib();
+    }
+    else {
+        os::log("error: could not determine %s compression type\n", filename);
+        file = NULL;
     }
     if (!file) {
         return NULL;
