@@ -43,8 +43,7 @@ add_library (retrace_common STATIC
 target_link_libraries (retrace_common
     image
     common
-    ${ZLIB_LIBRARIES}
-    ${SNAPPY_LIBRARIES}
+    ${COMPRESSION_LIBRARIES}
     ${GETOPT_LIBRARIES}
 )
 

@@ -49,8 +49,7 @@ if (WIN32)
         target_link_libraries (ddrawtrace
             common_trace
             common
-            ${ZLIB_LIBRARIES}
-            ${SNAPPY_LIBRARIES}
+            ${COMPRESSION_LIBRARIES}
         )
         set_target_properties (ddrawtrace PROPERTIES
             PREFIX ""
@@ -85,8 +84,7 @@ if (WIN32)
             d3dhelpers
             common_trace
             common
-            ${ZLIB_LIBRARIES}
-            ${SNAPPY_LIBRARIES}
+            ${COMPRESSION_LIBRARIES}
         )
         set_target_properties (d3d8trace PROPERTIES
             PREFIX ""
@@ -122,8 +120,7 @@ if (WIN32)
             d3dhelpers
             common_trace
             common
-            ${ZLIB_LIBRARIES}
-            ${SNAPPY_LIBRARIES}
+            ${COMPRESSION_LIBRARIES}
         )
         set_target_properties (d3d9trace PROPERTIES
             PREFIX ""
@@ -190,8 +187,7 @@ if (WIN32)
             d3dhelpers
             common_trace
             common
-            ${ZLIB_LIBRARIES}
-            ${SNAPPY_LIBRARIES}
+            ${COMPRESSION_LIBRARIES}
         )
         set_target_properties (dxgitrace
             PROPERTIES PREFIX ""
@@ -282,8 +278,7 @@ if (WIN32)
         target_link_libraries (d2d1trace
             common_trace
             common
-            ${ZLIB_LIBRARIES}
-            ${SNAPPY_LIBRARIES}
+            ${COMPRESSION_LIBRARIES}
         )
         set_target_properties (d2d1trace
             PROPERTIES PREFIX ""
@@ -332,8 +327,7 @@ if (WIN32)
         glproc_gl
         common_trace
         common
-        ${ZLIB_LIBRARIES}
-        ${SNAPPY_LIBRARIES}
+        ${COMPRESSION_LIBRARIES}
     )
     set_target_properties (wgltrace PROPERTIES
         PREFIX ""
@@ -376,8 +370,7 @@ elseif (APPLE)
         glproc_gl
         common_trace
         common
-        ${ZLIB_LIBRARIES}
-        ${SNAPPY_LIBRARIES}
+        ${COMPRESSION_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
         dl
     )
@@ -419,8 +412,7 @@ elseif (X11_FOUND)
         glproc_gl
         common_trace
         common
-        ${ZLIB_LIBRARIES}
-        ${SNAPPY_LIBRARIES}
+        ${COMPRESSION_LIBRARIES}
         ${LIBBACKTRACE_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
         dl
@@ -469,8 +461,7 @@ if (ENABLE_EGL AND NOT WIN32 AND NOT APPLE)
         glproc_egl
         common_trace
         common
-        ${ZLIB_LIBRARIES}
-        ${SNAPPY_LIBRARIES}
+        ${COMPRESSION_LIBRARIES}
         ${LIBBACKTRACE_LIBRARIES}
         ${CMAKE_THREAD_LIBS_INIT}
         dl

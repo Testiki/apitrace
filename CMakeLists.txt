@@ -225,7 +225,7 @@ set (WRAPPER_INSTALL_DIR ${LIB_ARCH_INSTALL_DIR}/wrappers)
 ##############################################################################
 # Bundled dependencies
 #
-# We always use the bundled zlib, libpng, and snappy sources:
+# We always use the bundled zlib, libpng, lz4 and snappy sources:
 # - on Windows to make it easy to deploy the wrappers DLLs
 # - on unices to prevent symbol collisions when tracing applications that link
 # against other versions of these libraries
@@ -241,6 +241,14 @@ set (SNAPPY_LIBRARIES snappy_bundled)
 add_subdirectory (thirdparty/snappy)
 
 include_directories (${SNAPPY_INCLUDE_DIRS})
+
+set (LZ4_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lz4)
+set (LZ4_LIBRARIES lz4_bundled)
+add_subdirectory (thirdparty/lz4)
+
+include_directories (${LZ4_INCLUDE_DIRS})
+
+set (COMPRESSION_LIBRARIES ${LZ4_LIBRARIES} ${ZLIB_LIBRARIES} ${SNAPPY_LIBRARIES})
 
 set (PNG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/libpng)
 set (PNG_DEFINITIONS "")

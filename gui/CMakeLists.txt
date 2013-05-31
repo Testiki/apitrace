@@ -76,8 +76,7 @@ add_executable(qapitrace ${qapitrace_SUBSYSTEM} ${qapitrace_SRCS} ${qapitrace_UI
 target_link_libraries (qapitrace
     image
     common
-    ${ZLIB_LIBRARIES}
-    ${SNAPPY_LIBRARIES}
+    ${COMPRESSION_LIBRARIES}
     ${QJSON_LIBRARIES}
     ${QT_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}

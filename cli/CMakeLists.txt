@@ -28,8 +28,7 @@ add_executable (apitrace
 
 target_link_libraries (apitrace
     common
-    ${ZLIB_LIBRARIES}
-    ${SNAPPY_LIBRARIES}
+    ${COMPRESSION_LIBRARIES}
     ${GETOPT_LIBRARIES}
 )
 
