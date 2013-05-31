@@ -319,9 +319,7 @@ add_library (common STATIC
     common/trace_dump.cpp
     common/trace_file.cpp
     common/trace_file_read.cpp
-    common/trace_file_write.cpp
     common/trace_file_zlib.cpp
-    common/trace_file_snappy.cpp
     common/trace_model.cpp
     common/trace_parser.cpp
     common/trace_parser_flags.cpp
@@ -333,6 +331,7 @@ add_library (common STATIC
     common/trace_option.cpp
     common/${os}
     common/trace_backtrace.cpp
+    common/trace_file_common.cpp
 )
 
 set_target_properties (common PROPERTIES

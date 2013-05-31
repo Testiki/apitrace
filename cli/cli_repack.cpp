@@ -65,12 +65,12 @@ repack(const char *inFileName, const char *outFileName)
         return 1;
     }
 
-    trace::File *outFile = trace::File::createForWrite(outFileName);
+    trace::File *outFile = trace::File::createCommonFile(trace::File::SNAPPY);
     if (!outFile) {
         delete inFile;
         return 1;
     }
-
+    outFile->open(outFileName, trace::File::Write);
     size_t size = 8192;
     char *buf = new char[size];
     size_t read;
@@ -78,7 +78,7 @@ repack(const char *inFileName, const char *outFileName)
     while ((read = inFile->read(buf, size)) != 0) {
         outFile->write(buf, read);
     }
-
+    outFile->close();
     delete [] buf;
     delete outFile;
     delete inFile;

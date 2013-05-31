@@ -146,7 +146,7 @@ void LocalWriter::checkProcessId(void) {
         // create a new file.  We can't call any method of the current
         // file, as it may cause it to flush and corrupt the parent's
         // trace, so we effectively leak the old file object.
-        m_file = File::createSnappy();
+        m_file = File::createCommonFile(File::SNAPPY);
         // Don't want to open the same file again
         os::unsetEnvironment("TRACE_FILE");
         open();

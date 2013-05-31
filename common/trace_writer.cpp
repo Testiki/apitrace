@@ -43,7 +43,7 @@ namespace trace {
 Writer::Writer() :
     call_no(0)
 {
-    m_file = File::createSnappy();
+    m_file = File::createCommonFile(File::LZ4);
     close();
 }
 
