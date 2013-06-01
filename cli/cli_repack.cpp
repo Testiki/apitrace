@@ -34,27 +34,35 @@
 #include "trace_file.hpp"
 #include "trace_threaded_file.hpp"
 
+static trace::File::Compressor compressor = trace::File::LZ4HC;
 
-static const char *synopsis = "Repack a trace file with Snappy compression.";
+static const char *synopsis = "Repack a trace file with other compression.";
 
 static void
 usage(void)
 {
     std::cout
-        << "usage: apitrace repack <in-trace-file> <out-trace-file>\n"
+        << "usage: apitrace repack [OPTION] <in-trace-file> <out-trace-file>\n"
         << synopsis << "\n"
         << "\n"
         << "Snappy compression allows for faster replay and smaller memory footprint,\n"
-        << "at the expense of a slightly smaller compression ratio than zlib\n"
+        << "at the expense of a slightly smaller compression ratio than zlib.\n"
+        << "LZ4HC compression allows for smaller file size than Snappy,\n"
+        << "but since LZ4HC have small compression speed, it isn't of use to tracing.\n"
+        << "\n"
+        << "    -c, --compression=COMPRESSION  specify compression format.\n"
+        << "                                   May be LZ4, Snappy or LZ4HC\n"
+        << "                                   (LZ4HC by default)\n"
         << "\n";
 }
 
 const static char *
-shortOptions = "h";
+shortOptions = "hc:";
 
 const static struct option
 longOptions[] = {
     {"help", no_argument, 0, 'h'},
+    {"compression", required_argument, 0, 'c'},
     {0, 0, 0, 0}
 };
 
@@ -66,7 +74,20 @@ repack(const char *inFileName, const char *outFileName)
         return 1;
     }
 
-    trace::File *outFile = new ThreadedFile(new trace::SnappyLibrary());
+    trace::File *outFile;
+    switch (compressor) {
+    case trace::File::LZ4:
+        outFile = new ThreadedFile(new trace::LZ4Library(false));
+        break;
+    case trace::File::LZ4HC:
+        outFile = new ThreadedFile(new trace::LZ4Library(true));
+        break;
+    case trace::File::SNAPPY:
+        outFile = new ThreadedFile(new trace::SnappyLibrary());
+        break;
+    default:
+        assert(false);
+    }
     if (!outFile) {
         delete inFile;
         return 1;
@@ -96,6 +117,22 @@ command(int argc, char *argv[])
         case 'h':
             usage();
             return 0;
+        case 'c':
+            if (!strcmp(optarg, "LZ4HC")) {
+              compressor = trace::File::LZ4HC;
+            }
+            else if (!strcmp(optarg, "LZ4")) {
+              compressor = trace::File::LZ4;
+            }
+            else if (!strcmp(optarg, "Snappy")) {
+              compressor = trace::File::SNAPPY;
+            }
+            else {
+                std::cerr << "error: unrecognized compression library " << optarg << "`\n";
+                usage();
+                return 1;
+            }
+            break;
         default:
             std::cerr << "error: unexpected option `" << opt << "`\n";
             usage();
