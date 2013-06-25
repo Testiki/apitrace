@@ -38,9 +38,9 @@
 #include <assert.h>
 
 
-class ThreadedFile;
-
 namespace trace {
+
+class ThreadedFile;
 
 class CompressionLibrary {
 

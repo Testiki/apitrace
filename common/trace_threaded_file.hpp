@@ -52,7 +52,7 @@
 #include "os_thread.hpp"
 #include "trace_file.hpp"
 
-using namespace trace;
+namespace trace {
 
 class CompressionCache {
 
@@ -171,7 +171,7 @@ private:
     void writeLength(size_t length);
 
     THREAD_ROUTINE static void * compressorThread(void * param);
- };
-
+};
+} //end namespace thread
 
 #endif /* TRACE_THREADED_FILE_HPP_ */

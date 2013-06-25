@@ -77,13 +77,13 @@ repack(const char *inFileName, const char *outFileName)
     trace::File *outFile;
     switch (compressor) {
     case trace::File::LZ4:
-        outFile = new ThreadedFile(new trace::LZ4Library(false));
+        outFile = new trace::ThreadedFile(new trace::LZ4Library(false));
         break;
     case trace::File::LZ4HC:
-        outFile = new ThreadedFile(new trace::LZ4Library(true));
+        outFile = new trace::ThreadedFile(new trace::LZ4Library(true));
         break;
     case trace::File::SNAPPY:
-        outFile = new ThreadedFile(new trace::SnappyLibrary());
+        outFile = new trace::ThreadedFile(new trace::SnappyLibrary());
         break;
     default:
         assert(false);
