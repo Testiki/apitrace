@@ -108,6 +108,8 @@ public:
 
     void flushWrite() {
         nextWriteBuffer();
+        // we should unlock read access to avoid a deadlock
+        MutexUnlock(m_readAccess[m_writeID]);
     }
 
     void acquireWriteControl() {

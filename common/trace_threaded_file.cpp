@@ -123,7 +123,9 @@ THREAD_ROUTINE void * ThreadedFile::compressorThread(void * param) {
         file->writeLength(compressedLength);
         file->m_stream.write(compressedData, compressedLength);
     }
-    while (compressedLength);
+    // The fact that we compress partially filled buffer means the end of tracing
+    // Inputlenght may be 0 and it doesn't break the trace
+    while (inputLength == CACHE_SIZE);
 
     delete [] compressedData;
     return NULL;
@@ -175,9 +177,8 @@ void ThreadedFile::rawClose() {
     if (!m_stream.is_open()) {
         return;
     }
-    m_cache->flushWrite();
+    rawFlush();
     m_cache->releaseLocks();
-    os::ThreadWait(m_thread);
     m_stream.close();
     delete m_cache;
 }
@@ -189,6 +190,7 @@ ThreadedFile::~ThreadedFile() {
 void ThreadedFile::rawFlush() {
     assert(m_mode == File::Write);
     m_cache->flushWrite();
+    os::ThreadWait(m_thread);
     m_stream.flush();
 }
 
