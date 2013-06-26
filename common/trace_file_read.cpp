@@ -28,7 +28,7 @@
 
 #include "os.hpp"
 #include "trace_file.hpp"
-
+#include "trace_compression_library.hpp"
 
 using namespace trace;
 

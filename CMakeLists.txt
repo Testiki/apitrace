@@ -333,6 +333,7 @@ add_library (common STATIC
     common/trace_backtrace.cpp
     common/trace_threaded_file.cpp
     common/trace_file_common.cpp
+    common/trace_compression_library.cpp
 )
 
 set_target_properties (common PROPERTIES

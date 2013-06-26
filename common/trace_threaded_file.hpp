@@ -51,6 +51,7 @@
 #include "os.hpp"
 #include "os_thread.hpp"
 #include "trace_file.hpp"
+#include "trace_compression_library.hpp"
 
 namespace trace {
 
