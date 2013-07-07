@@ -425,94 +425,47 @@ namespace os {
     };
 
 
-#if defined _WIN32
-
-typedef HANDLE Thread;
-typedef HANDLE Mutex;
-
-#define THREAD_ROUTINE WINAPI
-
-static inline Thread ThreadCreate(void *(WINAPI * routine)(void *),
-                                  void *param) {
-   DWORD id;
-   return CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) routine,
-                       param, 0, &id);
-}
-
-static inline int ThreadWait(Thread thread) {
-   if (WaitForSingleObject(thread, INFINITE) == WAIT_OBJECT_0) {
-      return 0;
-   }
-   return -1;
-}
-
-static inline int ThreadDestroy(Thread thread) {
-   if (CloseHandle(thread)) {
-      return 0;
-   }
-   return -1;
-}
-
-#define MutexInit(mutex) \
-    (void)(mutex = CreateSemaphore(NULL, 1, 1, NULL))
-
-#define MutexDestroy(mutex) \
-    CloseHandle(mutex);
-
-#define MutexLock(mutex) \
-    (void) WaitForSingleObject(mutex, INFINITE)
-
-#define MutexUnlock(mutex) \
-    (void) ReleaseSemaphore(mutex, 1, NULL);
-
-#else /* !_WIN32 */
-
-typedef pthread_t Thread;
-typedef sem_t Mutex;
-
-#define THREAD_ROUTINE /* */
-
-static inline Thread ThreadCreate(void *(* routine)( void *),
-                                  void *param) {
-   Thread thread;
-   sigset_t saved_set, new_set;
-   int ret;
-
-   /*
-    * Block signals for new thread when spawning threads.
-    */
-
-   sigfillset(&new_set);
-   pthread_sigmask(SIG_SETMASK, &new_set, &saved_set);
-   ret = pthread_create( &thread, NULL, routine, param );
-   pthread_sigmask(SIG_SETMASK, &saved_set, NULL);
-   if (ret) {
-      return 0;
-   }
-   return thread;
-}
-
-static inline int ThreadWait(Thread thread) {
-   return pthread_join(thread, NULL);
-}
-
-static inline int ThreadDestroy(Thread thread) {
-   return pthread_detach(thread);
-}
-
-#define MutexInit(mutex) \
-   (void) sem_init(&(mutex), 0, 1)
-
-#define MutexDestroy(mutex) \
-   (void) sem_destroy(&(mutex))
-
-#define MutexLock(mutex) \
-   (void) sem_wait(&(mutex))
-
-#define MutexUnlock(mutex) \
-   (void) sem_post(&(mutex))
-
+    class semaphore {
+    public:
+#ifdef _WIN32
+        typedef HANDLE native_handle_type;
+#else
+        typedef sem_t native_handle_type;
 #endif
+        semaphore(int initValue = 1) {
+#ifdef _WIN32
+            _native_handle = CreateSemaphore(NULL, initValue, initValue, NULL);
+#else
+            sem_init(&_native_handle, 0, initValue);
+#endif
+        }
+
+        void wait() {
+#ifdef _WIN32
+            _native_handle = WaitForSingleObject(_native_handle, INFINITE);
+#else
+            sem_wait(&_native_handle);
+#endif
+        }
+
+        void post() {
+#ifdef _WIN32
+            _native_handle = ReleaseSemaphore(_native_handle, 1, NULL);
+#else
+            sem_post(&_native_handle);
+#endif
+        }
+
+        ~semaphore() {
+#ifdef _WIN32
+            CloseHandle(_native_handle);
+#else
+            sem_destroy(&_native_handle);
+#endif
+        }
+    private:
+        native_handle_type _native_handle;
+    };
 
 } /* namespace os */
 

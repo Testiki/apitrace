@@ -63,8 +63,8 @@ private:
 
     char *m_caches[NUM_BUFFERS];
     char *m_cachePtr[NUM_BUFFERS];
-    os::Mutex m_writeAccess[NUM_BUFFERS];
-    os::Mutex m_readAccess[NUM_BUFFERS];
+    os::semaphore m_writeAccess[NUM_BUFFERS];
+    os::semaphore m_readAccess[NUM_BUFFERS];
 
     size_t m_sizes[NUM_BUFFERS];
 
@@ -86,17 +86,17 @@ private:
     inline void nextWriteBuffer() {
         m_sizes[m_writeID] = m_cachePtr[m_writeID] - m_caches[m_writeID];
         m_cachePtr[m_writeID] = m_caches[m_writeID];
-        MutexUnlock(m_readAccess[m_writeID]);
+        m_readAccess[m_writeID].post();
         m_writeID = (m_writeID + 1) % NUM_BUFFERS;
-        MutexLock(m_writeAccess[m_writeID]);
+        m_writeAccess[m_writeID].wait();
         m_sizes[m_writeID] = 0;
     }
 
     inline void nextReadBuffer() {
         m_cachePtr[m_readID] = m_caches[m_readID];
-        MutexUnlock(m_writeAccess[m_readID]);
+        m_writeAccess[m_readID].post();
         m_readID = (m_readID + 1) % NUM_BUFFERS;
-        MutexLock(m_readAccess[m_readID]);
+        m_readAccess[m_readID].wait();
     }
 
 public:
@@ -110,21 +110,21 @@ public:
     void flushWrite() {
         nextWriteBuffer();
         // we should unlock read access to avoid a deadlock
-        MutexUnlock(m_readAccess[m_writeID]);
+        releaseLocks();
     }
 
     void acquireWriteControl() {
-        MutexLock(m_writeAccess[m_writeID]);
-        MutexLock(m_readAccess[m_writeID]);
-        MutexLock(m_readAccess[m_writeID+1]);
+        m_writeAccess[m_writeID].wait();
+        m_readAccess[m_writeID].wait();
+        m_readAccess[m_writeID+1].wait();
     }
 
     void releaseLocks() {
-        MutexUnlock(m_readAccess[m_writeID]);
+        m_readAccess[m_writeID].post();
     }
 
     void acquireReadControl() {
-        MutexLock(m_readAccess[m_readID]);
+        m_readAccess[m_readID].wait();
     }
 };
 
@@ -169,11 +169,11 @@ private:
     File::Offset m_currentOffset;
     static const size_t CACHE_SIZE = 1 * 1024 * 1024;
     trace::CompressionLibrary *m_library;
-    os::Thread m_thread;
+    os::thread m_thread;
 
     void writeLength(size_t length);
 
-    THREAD_ROUTINE static void * compressorThread(void * param);
+    static void * compressorThread(void * param);
 };
 } //end namespace thread
 

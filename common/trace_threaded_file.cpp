@@ -36,8 +36,6 @@ CompressionCache::CompressionCache(size_t chunkSize, trace::CompressionLibrary *
     for (int i = 0; i < NUM_BUFFERS; ++i) {
         m_caches[i] = new char[m_chunkSize];
         m_cachePtr[i] = m_caches[i];
-        MutexInit(m_readAccess[i]);
-        MutexInit(m_writeAccess[i]);
     }
     m_writeID = 0;
     m_readID = 0;
@@ -112,7 +110,7 @@ size_t CompressionCache::readAndCompressBuffer(char *buffer, size_t &inputLength
     return compressedLength;
 }
 
-THREAD_ROUTINE void * ThreadedFile::compressorThread(void * param) {
+void * ThreadedFile::compressorThread(void * param) {
     ThreadedFile *file = (ThreadedFile *) param;
     char * compressedData = new char[file->m_library->maxCompressedLength(file->CACHE_SIZE)];
     file->m_cache->acquireReadControl();
@@ -157,7 +155,7 @@ bool ThreadedFile::rawOpen(const std::string &filename, enum Mode mode) {
         m_stream << ((unsigned char)((sig >> 8) & 0xFF));
         m_stream << ((unsigned char)(sig & 0xFF));
         m_cache->acquireWriteControl();
-        m_thread = os::ThreadCreate(compressorThread, this);
+        m_thread = os::thread(compressorThread, this);
     }
     return m_stream.is_open();
 }
@@ -166,11 +164,13 @@ bool ThreadedFile::rawOpen(const std::string &filename, enum Mode mode) {
 size_t ThreadedFile::rawRead(void *buffer, size_t length) {
     os::log("apitrace: threaded file read function access \n");
     os::abort();
+    return 0;
 }
 
 int ThreadedFile::rawGetc() {
     os::log("apitrace: threaded file read function access \n");
     os::abort();
+    return 0;
 }
 
 void ThreadedFile::rawClose() {
@@ -190,13 +190,14 @@ ThreadedFile::~ThreadedFile() {
 void ThreadedFile::rawFlush() {
     assert(m_mode == File::Write);
     m_cache->flushWrite();
-    os::ThreadWait(m_thread);
+    m_thread.join();
     m_stream.flush();
 }
 
 bool ThreadedFile::rawSkip(size_t length) {
     os::log("apitrace: threaded file read function access \n");
     os::abort();
+    return false;
 }
 
 bool ThreadedFile::supportsOffsets() const {
@@ -206,6 +207,7 @@ bool ThreadedFile::supportsOffsets() const {
 File::Offset ThreadedFile::currentOffset() {
     os::log("apitrace: threaded file read function access \n");
     os::abort();
+    return 0;
 }
 
 void ThreadedFile::setCurrentOffset(const File::Offset &offset) {
@@ -222,6 +224,7 @@ void ThreadedFile::writeLength(size_t length) {
 int ThreadedFile::rawPercentRead() {
     os::log("apitrace: threaded file read function access \n");
     os::abort();
+    return 0;
 }
 
 ThreadedFile* File::createThreadedFile() {
